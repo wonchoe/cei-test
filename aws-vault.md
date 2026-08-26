@@ -67,7 +67,7 @@ flowchart TB
   tempSession --> lambda["Lambda deployment only"]
 ```
 
-This pattern can work for a proof of concept and avoids changing shared role policies during concurrent deployments. It is riskier than dedicated deployment roles: if the session policy is missing or incorrectly generated, the assumed role may expose its full administrative permissions.
+This pattern can work for a proof of concept and avoids changing shared role policies during concurrent deployments. The workflow can use a fail-closed design: validate the returned AWS role and deployment context before running any deployment command, and stop with a non-zero status if validation fails. AWS does not automatically reject `AssumeRole` when a session policy is omitted, so Vault must generate and apply the session policy consistently. Dedicated deployment roles still provide clearer auditing and a smaller permission scope.
 
 ## Current test configuration
 
@@ -405,7 +405,7 @@ effective permissions = OwnerRole permissions ∩ session policy
 
 The session policy cannot grant permissions that the role does not already have.
 
-This approach avoids changing a shared role during every deployment and is safe for concurrent sessions. Each workflow receives a separate STS session. However, it is less desirable than dedicated deployment roles because a missing or incorrect session policy could expose the full Owner/Admin permissions. It also makes auditing less clear.
+This approach avoids changing a shared role during every deployment and is safe for concurrent sessions. Each workflow receives a separate STS session. The workflow should validate the returned role and stop before deployment if the expected context is not present. Dedicated deployment roles remain preferable for clearer auditing and a smaller permission scope.
 
 Recommended production order:
 
