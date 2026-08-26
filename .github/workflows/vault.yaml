@@ -1,0 +1,31 @@
+name: Vault OIDC smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test-vault:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Read test secret from Vault
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://vault-cluster-public-vault-961ebe1a.5e41c3d0.z1.hashicorp.cloud:8200
+          namespace: admin
+          method: jwt
+          path: jwt
+          role: github-poc-read
+          jwtGithubAudience: https://github.com/wonchoe
+          secrets: |
+            poc/data/github smoke | VAULT_SMOKE
+
+      - name: Verify Vault access
+        shell: bash
+        run: |
+          test "$VAULT_SMOKE" = "ok"
+          echo "GitHub OIDC -> Vault працює"
