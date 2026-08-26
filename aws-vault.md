@@ -22,6 +22,53 @@ GitHub Actions OIDC
 
 No long-lived AWS access key was stored in GitHub Actions.
 
+## Three access patterns
+
+### 1. Direct Vault OIDC into each AWS account
+
+Each AWS account has its own IAM OIDC provider and deployment role. This is simple to understand, but the provider and role must be bootstrapped in every account.
+
+```mermaid
+flowchart LR
+  github["GitHub Actions workflow"] -->|"GitHub OIDC token"| vaultJwt["Vault JWT auth role"]
+  vaultJwt -->|"Vault policy allows AWS credentials endpoint"| vaultAws["Vault AWS secrets engine"]
+  vaultAws -->|"Plugin identity token"| accountProvider["OIDC Provider in target AWS account"]
+  accountProvider -->|"AssumeRoleWithWebIdentity"| deployRole["DeploymentRole in target account"]
+  deployRole -->|"Temporary STS credentials"| awsResources["Lambda / S3 / other AWS resources"]
+```
+
+### 2. Central broker account
+
+The OIDC provider exists once in a central tooling or security account. Member accounts contain standard deployment roles that trust the central broker role.
+
+```mermaid
+flowchart LR
+  github["GitHub Actions workflow"] -->|"GitHub OIDC token"| vaultJwt["Vault JWT auth role"]
+  vaultJwt -->|"Read approved AWS role mapping"| vaultAws["Vault AWS secrets engine"]
+  vaultAws -->|"AssumeRoleWithWebIdentity"| oidcProvider["Vault OIDC Provider in central account"]
+  oidcProvider -->|"Assume"| brokerRole["VaultBrokerRole in central account"]
+  brokerRole -->|"sts:AssumeRole"| targetRole["LambdaDeployRole in member account"]
+  targetRole -->|"Temporary STS credentials"| awsResources["Target account AWS resources"]
+```
+
+New member accounts can receive `LambdaDeployRole`, `S3DeployRole`, and similar roles automatically through Control Tower or CloudFormation StackSets.
+
+### 3. Owner/Admin role restricted by session policy
+
+An existing Owner or Administrator role can be assumed with an inline session policy. The effective permissions are the intersection of the role policy and the session policy.
+
+```mermaid
+flowchart LR
+  github["GitHub Actions workflow"] -->|"GitHub OIDC token"| vaultJwt["Vault JWT auth role"]
+  vaultJwt --> vaultAws["Vault AWS secrets engine"]
+  vaultAws -->|"AssumeRole + session policy"| adminRole["Owner / Administrator role"]
+  sessionPolicy["Lambda-only session policy"] -->|"Restricts this session"| adminRole
+  adminRole -->|"Effective permissions = role permissions ∩ session policy"| tempSession["Temporary STS session"]
+  tempSession --> lambda["Lambda deployment only"]
+```
+
+This pattern can work for a proof of concept and avoids changing shared role policies during concurrent deployments. It is riskier than dedicated deployment roles: if the session policy is missing or incorrectly generated, the assumed role may expose its full administrative permissions.
+
 ## Current test configuration
 
 ### AWS account
