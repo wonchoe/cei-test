@@ -29,7 +29,7 @@ No long-lived AWS access key was stored in GitHub Actions.
 Each AWS account has its own IAM OIDC provider and deployment role. This is simple to understand, but the provider and role must be bootstrapped in every account.
 
 ```mermaid
-flowchart LR
+flowchart TB
   github["GitHub Actions workflow"] -->|"GitHub OIDC token"| vaultJwt["Vault JWT auth role"]
   vaultJwt -->|"Vault policy allows AWS credentials endpoint"| vaultAws["Vault AWS secrets engine"]
   vaultAws -->|"Plugin identity token"| accountProvider["OIDC Provider in target AWS account"]
@@ -42,7 +42,7 @@ flowchart LR
 The OIDC provider exists once in a central tooling or security account. Member accounts contain standard deployment roles that trust the central broker role.
 
 ```mermaid
-flowchart LR
+flowchart TB
   github["GitHub Actions workflow"] -->|"GitHub OIDC token"| vaultJwt["Vault JWT auth role"]
   vaultJwt -->|"Read approved AWS role mapping"| vaultAws["Vault AWS secrets engine"]
   vaultAws -->|"AssumeRoleWithWebIdentity"| oidcProvider["Vault OIDC Provider in central account"]
@@ -58,7 +58,7 @@ New member accounts can receive `LambdaDeployRole`, `S3DeployRole`, and similar 
 An existing Owner or Administrator role can be assumed with an inline session policy. The effective permissions are the intersection of the role policy and the session policy.
 
 ```mermaid
-flowchart LR
+flowchart TB
   github["GitHub Actions workflow"] -->|"GitHub OIDC token"| vaultJwt["Vault JWT auth role"]
   vaultJwt --> vaultAws["Vault AWS secrets engine"]
   vaultAws -->|"AssumeRole + session policy"| adminRole["Owner / Administrator role"]
