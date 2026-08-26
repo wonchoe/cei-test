@@ -317,7 +317,7 @@ The central account is not an AWS Organization-level IAM scope. It is a normal A
 
 ### Central broker role
 
-The central `VaultBrokerRole` should have only the ability to assume approved target roles:
+For this proof of concept, the central `VaultBrokerRole` can be allowed to assume any IAM role in the organization. The target role's trust policy still has to trust `VaultBrokerRole`, so this permission alone does not grant access to every account.
 
 ```json
 {
@@ -326,14 +326,19 @@ The central `VaultBrokerRole` should have only the ability to assume approved ta
     {
       "Effect": "Allow",
       "Action": "sts:AssumeRole",
-      "Resource": [
-        "arn:aws:iam::<MEMBER_ACCOUNT_ID>:role/LambdaDeployRole",
-        "arn:aws:iam::<MEMBER_ACCOUNT_ID>:role/S3DeployRole"
-      ]
+      "Resource": "arn:aws:iam::*:role/*"
     }
   ]
 }
 ```
+
+This wildcard is intentionally broad for the POC and removes the need to update the central policy whenever a new account or role is created. Once the model is accepted, it can be restricted to a naming convention such as:
+
+```json
+"Resource": "arn:aws:iam::*:role/Deploy-*"
+```
+
+or to an explicit list of capability roles such as `LambdaDeployRole`, `S3DeployRole`, and `ECSDeployRole`.
 
 ### Target role trust policy
 
