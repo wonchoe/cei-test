@@ -110,6 +110,34 @@ ARN: arn:aws:iam::468185235976:role/VaultOneRoleNoSelfTrust
 
 Despite the historical test name, the final working role contains a self-assume statement because the Vault AWS `assumed_role` flow performs a second `sts:AssumeRole` request on a fresh mount.
 
+### Why does the role trust itself?
+
+Yes, this test role is explicitly allowed to assume itself. This is intentional for the one-role experiment, but it is not a general AWS requirement.
+
+The flow has two AWS steps:
+
+```text
+1. Vault uses its plugin identity token to enter VaultOneRole.
+2. The Vault AWS secrets engine calls sts:AssumeRole on VaultOneRole to issue a fresh lease.
+```
+
+AWS evaluates the second request independently. The role therefore needs both:
+
+```text
+Trust policy: Principal VaultOneRole may call sts:AssumeRole
+Permissions policy: VaultOneRole may call sts:AssumeRole on its own ARN
+```
+
+Each workflow still receives its own temporary STS session, so concurrent runs do not modify the role or its policies. The self-trust is only a technical requirement of this one-role `assumed_role` arrangement.
+
+The central broker design does not use self-trust:
+
+```text
+Vault OIDC → VaultBrokerRole → target DeploymentRole
+```
+
+In that design, the target role trusts `VaultBrokerRole`, and the broker role is allowed to assume the target role.
+
 The role currently has these inline policies:
 
 ```text
