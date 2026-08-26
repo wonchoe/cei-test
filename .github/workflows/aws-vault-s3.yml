@@ -1,0 +1,34 @@
+name: AWS Vault OIDC S3 smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  aws-vault-s3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read temporary AWS credentials from Vault
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://vault-cluster-public-vault-961ebe1a.5e41c3d0.z1.hashicorp.cloud:8200
+          namespace: admin
+          method: jwt
+          path: jwt
+          role: github-aws-s3-test
+          jwtGithubAudience: https://github.com/wonchoe
+          secrets: |
+            aws/creds/aws-one-role-no-self-trust access_key | AWS_ACCESS_KEY_ID
+            aws/creds/aws-one-role-no-self-trust secret_key | AWS_SECRET_ACCESS_KEY
+            aws/creds/aws-one-role-no-self-trust session_token | AWS_SESSION_TOKEN
+
+      - name: Verify AWS identity
+        shell: bash
+        run: aws sts get-caller-identity
+
+      - name: List S3 buckets
+        shell: bash
+        run: aws s3 ls
