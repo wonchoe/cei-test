@@ -21,9 +21,9 @@ jobs:
           role: github-aws-s3-test
           jwtGithubAudience: https://github.com/wonchoe
           secrets: |
-            aws/creds/aws-one-role-no-self-trust access_key | AWS_ACCESS_KEY_ID
-            aws/creds/aws-one-role-no-self-trust secret_key | AWS_SECRET_ACCESS_KEY
-            aws/creds/aws-one-role-no-self-trust session_token | AWS_SESSION_TOKEN
+            aws-one/creds/aws-one-role access_key | AWS_ACCESS_KEY_ID ;
+            aws-one/creds/aws-one-role secret_key | AWS_SECRET_ACCESS_KEY ;
+            aws-one/creds/aws-one-role session_token | AWS_SESSION_TOKEN ;
 
       - name: Verify AWS identity
         shell: bash
