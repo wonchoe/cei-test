@@ -28,4 +28,4 @@ jobs:
         shell: bash
         run: |
           test "$VAULT_SMOKE" = "ok"
-          echo "GitHub OIDC -> Vault працює"
+          echo "GitHub OIDC -> Vault authentication works"
