@@ -1,0 +1,69 @@
+name: Azure Function access through Vault
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AZURE_TENANT_ID: 68bf630b-aa85-4cc9-b726-3d4cfd65aca4
+  AZURE_SUBSCRIPTION_ID: b6aed234-b5fc-4ad1-a4b9-83202e173cf4
+  AZURE_RESOURCE_GROUP: vault-azure-poc
+
+jobs:
+  function-access-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Read temporary Azure credentials from Vault
+        uses: hashicorp/vault-action@v2
+        with:
+          url: https://vault-cluster-public-vault-961ebe1a.5e41c3d0.z1.hashicorp.cloud:8200
+          namespace: admin
+          method: jwt
+          path: jwt
+          role: github-azure-function
+          jwtGithubAudience: https://github.com/wonchoe
+          secrets: |
+            azure-course/creds/function-publisher client_id | AZURE_CLIENT_ID ;
+            azure-course/creds/function-publisher client_secret | AZURE_CLIENT_SECRET ;
+
+      - name: Login to Azure with temporary credentials
+        shell: bash
+        run: |
+          az login \
+            --service-principal \
+            --username "$AZURE_CLIENT_ID" \
+            --password "$AZURE_CLIENT_SECRET" \
+            --tenant "$AZURE_TENANT_ID" \
+            --output none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+
+      - name: Verify Function App access is allowed
+        shell: bash
+        run: |
+          az functionapp list \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --query "[].name" \
+            --output table
+
+      - name: Verify Blob Storage access is denied
+        shell: bash
+        run: |
+          set +e
+          az storage account list \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --output none
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "ERROR: Function credentials can access Storage accounts"
+            exit 1
+          fi
+
+          echo "Expected deny: Function role cannot access Storage accounts"
