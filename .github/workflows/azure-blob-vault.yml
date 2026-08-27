@@ -17,6 +17,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Describe authentication flow
+        shell: bash
+        run: |
+          echo "Flow: GitHub OIDC -> Vault JWT role -> dynamic Azure service principal -> Azure ARM"
+          echo "Vault endpoint: https://vault-cluster-public-vault-961ebe1a.5e41c3d0.z1.hashicorp.cloud:8200"
+          echo "Vault namespace: admin"
+          echo "Vault JWT role: github-azure-blob"
+          echo "Vault Azure role endpoint: azure-course/creds/blob-deployer"
+          echo "Target subscription: $AZURE_SUBSCRIPTION_ID"
+          echo "Target resource group: $AZURE_RESOURCE_GROUP"
+
       - name: Read temporary Azure credentials from Vault
         uses: hashicorp/vault-action@v2
         with:
@@ -30,9 +41,22 @@ jobs:
             azure-course/creds/blob-deployer client_id | AZURE_CLIENT_ID ;
             azure-course/creds/blob-deployer client_secret | AZURE_CLIENT_SECRET ;
 
+      - name: Confirm Vault issued temporary credentials
+        shell: bash
+        run: |
+          test -n "$AZURE_CLIENT_ID"
+          test -n "$AZURE_CLIENT_SECRET"
+          client_id_preview="${AZURE_CLIENT_ID:0:8}..."
+          echo "Vault JWT authentication succeeded"
+          echo "Vault returned temporary Azure credentials"
+          echo "Temporary service principal client ID: $client_id_preview (rest redacted)"
+          echo "Client secret: present (value redacted)"
+          echo "The Vault lease and secret values are intentionally not printed"
+
       - name: Login to Azure with temporary credentials
         shell: bash
         run: |
+          echo "Exchanging the temporary client credentials for an Azure login"
           az login \
             --service-principal \
             --username "$AZURE_CLIENT_ID" \
@@ -40,17 +64,22 @@ jobs:
             --tenant "$AZURE_TENANT_ID" \
             --allow-no-subscriptions \
             --output none
+          echo "Azure service-principal login succeeded"
 
       - name: Verify Blob Storage access is allowed
         shell: bash
         run: |
           storage_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/vaultRbacProbeNonexistent?api-version=2023-05-01"
+          echo "Requesting an Azure ARM token for the temporary identity"
           arm_token=$(az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv)
+          echo "Azure ARM token acquired (value redacted; length: ${#arm_token})"
+          echo "GET $storage_url"
           http_status=$(curl --silent --show-error \
             --header "Authorization: Bearer $arm_token" \
             --output /tmp/storage-response.json \
             --write-out "%{http_code}" \
             "$storage_url")
+          echo "Storage authorization probe HTTP status: $http_status"
           test "$http_status" = "404"
           echo "Expected result: Storage resource type is allowed (404 means the probe resource does not exist)"
 
@@ -58,7 +87,9 @@ jobs:
         shell: bash
         run: |
           function_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/sites/vault-rbac-probe-nonexistent?api-version=2023-12-01"
+          echo "Requesting an Azure ARM token for the Function negative test"
           arm_token=$(az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv)
+          echo "GET $function_url"
           set +e
           http_status=$(curl --silent --show-error \
             --header "Authorization: Bearer $arm_token" \
@@ -67,6 +98,7 @@ jobs:
             "$function_url")
           curl_status=$?
           set -e
+          echo "Function authorization probe HTTP status: $http_status (curl exit: $curl_status)"
 
           if [ "$curl_status" -ne 0 ] || [ "$http_status" != "403" ]; then
             echo "ERROR: Blob credentials were not denied by Function RBAC"
