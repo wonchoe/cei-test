@@ -45,18 +45,28 @@ jobs:
         shell: bash
         run: |
           storage_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts?api-version=2023-05-01"
-          az rest --method get --url "$storage_url" --output table
+          arm_token=$(az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv)
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $arm_token" \
+            "$storage_url" \
+            --output /tmp/storage-response.json
+          cat /tmp/storage-response.json
 
       - name: Verify Function App access is denied
         shell: bash
         run: |
           function_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/sites?api-version=2023-12-01"
+          arm_token=$(az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv)
           set +e
-          az rest --method get --url "$function_url" --output none
-          status=$?
+          http_status=$(curl --silent --show-error \
+            --header "Authorization: Bearer $arm_token" \
+            --output /tmp/function-response.json \
+            --write-out "%{http_code}" \
+            "$function_url")
+          curl_status=$?
           set -e
 
-          if [ "$status" -eq 0 ]; then
+          if [ "$curl_status" -ne 0 ] || [ "$http_status" != "403" ]; then
             echo "ERROR: Blob credentials can access Function Apps"
             exit 1
           fi
