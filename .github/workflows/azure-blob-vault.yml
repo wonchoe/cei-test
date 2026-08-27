@@ -44,20 +44,15 @@ jobs:
       - name: Verify Blob Storage access is allowed
         shell: bash
         run: |
-          az storage account list \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --subscription "$AZURE_SUBSCRIPTION_ID" \
-            --query "[].name" \
-            --output table
+          storage_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts?api-version=2023-05-01"
+          az rest --method get --url "$storage_url" --output table
 
       - name: Verify Function App access is denied
         shell: bash
         run: |
+          function_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/sites?api-version=2023-12-01"
           set +e
-          az functionapp list \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --subscription "$AZURE_SUBSCRIPTION_ID" \
-            --output none
+          az rest --method get --url "$function_url" --output none
           status=$?
           set -e
 
