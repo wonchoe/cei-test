@@ -16,3 +16,8 @@ website_url = "https://dzbwd7k1tiwh8.cloudfront.net"
 ```
 
 Live website: <https://dzbwd7k1tiwh8.cloudfront.net>
+
+## Vault access proofs of concept
+
+- [Azure access through Vault](azure-vault.md)
+- [AWS access through Vault](aws-vault.md)
