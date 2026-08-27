@@ -44,18 +44,20 @@ jobs:
       - name: Verify Function App access is allowed
         shell: bash
         run: |
-          function_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/sites?api-version=2023-12-01"
+          function_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Web/sites/vault-rbac-probe-nonexistent?api-version=2023-12-01"
           arm_token=$(az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv)
-          curl --fail-with-body --silent --show-error \
+          http_status=$(curl --silent --show-error \
             --header "Authorization: Bearer $arm_token" \
-            "$function_url" \
-            --output /tmp/function-response.json
-          cat /tmp/function-response.json
+            --output /tmp/function-response.json \
+            --write-out "%{http_code}" \
+            "$function_url")
+          test "$http_status" = "404"
+          echo "Expected result: Function resource type is allowed (404 means the probe resource does not exist)"
 
       - name: Verify Blob Storage access is denied
         shell: bash
         run: |
-          storage_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts?api-version=2023-05-01"
+          storage_url="https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$AZURE_RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/vaultRbacProbeNonexistent?api-version=2023-05-01"
           arm_token=$(az account get-access-token --resource https://management.azure.com/ --query accessToken --output tsv)
           set +e
           http_status=$(curl --silent --show-error \
@@ -67,7 +69,7 @@ jobs:
           set -e
 
           if [ "$curl_status" -ne 0 ] || [ "$http_status" != "403" ]; then
-            echo "ERROR: Function credentials can access Storage accounts"
+            echo "ERROR: Function credentials were not denied by Storage RBAC"
             exit 1
           fi
 
