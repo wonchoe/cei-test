@@ -84,19 +84,19 @@ The Function workflow uses `github-azure-function`; the Blob workflow uses `gith
 
 ```mermaid
 sequenceDiagram
-    participant G as GitHub Actions
+    participant G as GitHub
     participant V as Vault
     participant A as Azure
-    G->>V: Present GitHub OIDC JWT
-    V->>V: Validate repository, branch, audience and workflow claims
+    G->>V: GitHub OIDC JWT login
+    V->>V: Validate repo, branch, audience and workflow claims
     V->>A: Create temporary Service Principal
-    V->>A: Assign Function Publisher role at subscription scope
-    V-->>G: Return temporary client_id and client_secret
+    V->>A: Assign Function Publisher role
+    V-->>G: Return temporary credentials
     G->>A: Login with temporary Service Principal
-    G->>A: GET Microsoft.Web/sites/vault-rbac-probe-nonexistent
-    A-->>G: 404 (Function provider allowed; resource absent)
-    G->>A: GET Microsoft.Storage/storageAccounts/vaultRbacProbeNonexistent
-    A-->>G: 403 (Storage provider denied)
+    G->>A: GET Microsoft.Web sites probe
+    A-->>G: 404 - provider allowed, resource absent
+    G->>A: GET Microsoft.Storage account probe
+    A-->>G: 403 - provider denied
 ```
 
 Workflow file: [`azure-function-vault.yml`](.github/workflows/azure-function-vault.yml)
@@ -105,19 +105,19 @@ Workflow file: [`azure-function-vault.yml`](.github/workflows/azure-function-vau
 
 ```mermaid
 sequenceDiagram
-    participant G as GitHub Actions
+    participant G as GitHub
     participant V as Vault
     participant A as Azure
-    G->>V: Present GitHub OIDC JWT
-    V->>V: Validate repository, branch, audience and workflow claims
+    G->>V: GitHub OIDC JWT login
+    V->>V: Validate repo, branch, audience and workflow claims
     V->>A: Create temporary Service Principal
-    V->>A: Assign Blob Deployer role at subscription scope
-    V-->>G: Return temporary client_id and client_secret
+    V->>A: Assign Blob Deployer role
+    V-->>G: Return temporary credentials
     G->>A: Login with temporary Service Principal
-    G->>A: GET Microsoft.Storage/storageAccounts/vaultRbacProbeNonexistent
-    A-->>G: 404 (Storage provider allowed; resource absent)
-    G->>A: GET Microsoft.Web/sites/vault-rbac-probe-nonexistent
-    A-->>G: 403 (Function provider denied)
+    G->>A: GET Microsoft.Storage account probe
+    A-->>G: 404 - provider allowed, resource absent
+    G->>A: GET Microsoft.Web sites probe
+    A-->>G: 403 - provider denied
 ```
 
 Workflow file: [`azure-blob-vault.yml`](.github/workflows/azure-blob-vault.yml)
